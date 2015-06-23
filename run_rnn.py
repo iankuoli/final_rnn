@@ -11,17 +11,17 @@ logging.basicConfig(level=logging.INFO)
 
 # model feature dim has 200
 model = {}
-fin = open('vectors.6B.200d.txt')
-for line in fin:
-    items = line.replace('\r', '').replace('\n', '').split(' ')
-    if len(items) < 10:
-        continue
-    word = items[0]
-    vect = np.array([float(i) for i in items[1:]]) # if len(i) > 1])
-    if vect.shape[0] != 200:
-        print(vect)
+with open('vectors.6B.200d.txt') as fin:
+    for line in fin:
+        items = line.replace('\r', '').replace('\n', '').split(' ')
+        if len(items) < 10:
+            continue
+        word = items[0]
+        vect = np.array([float(i) for i in items[1:]]) # if len(i) > 1])
+        if vect.shape[0] != 200:
+            print(vect)
 
-    model[word] = vect
+        model[word] = vect
 '''
 model = {}
 model["xxxxx"] = [1, 1, 1]
@@ -53,16 +53,30 @@ with open('MLDS_Final/sentence/train_clean.set', 'r', encoding='UTF-8') as file:
         a = clean_text.clean_text(line)
         a = a.split(' ')
 
-        x_seq = np.zeros((len(a), word_vec_len), dtype='float64')
-        y_seq = np.zeros((len(a),), dtype='int32')
-
         for i in range(len(a)):
             word = a[i]
             if word not in word2label:
                 word2label[word] = labelCount
                 label2word[labelCount] = word
                 labelCount += 1
-            y_seq[i] = word2label[word]
+
+with open('training_2.txt', 'r', encoding='UTF-8') as file:
+    for line in file:
+
+        a = clean_text.clean_text(line)
+        a = a.split(' ')
+
+        x_seq = np.zeros((len(a), word_vec_len), dtype='float64')
+        y_seq = np.zeros((len(a),), dtype='int32')
+
+        for i in range(len(a)):
+            word = a[i]
+
+            if word in word2label:
+                y_seq[i] = word2label[word]
+            else:
+                y_seq[i] = word2label["%%%"]
+
             if word in model:
                 x_seq[i, :] = model[word]
             else:

@@ -8,7 +8,7 @@ import clean_text
 import pickle
 import theano
 
-model_path = "save_param_hidden80_328_043"
+model_path = "save_param2_hidden100_best"
 
 plt.ion()
 logging.basicConfig(level=logging.INFO)
@@ -54,9 +54,6 @@ with open('MLDS_Final/sentence/train_clean.set', 'r', encoding='UTF-8') as file:
         a = clean_text.clean_text(line)
         a = a.split(' ')
 
-        x_seq = numpy.zeros((len(a), word_vec_len), dtype='float64')
-        y_seq = numpy.zeros((len(a),), dtype='int32')
-
         for i in range(len(a)):
             word = a[i]
             if word not in word2label:
@@ -64,8 +61,8 @@ with open('MLDS_Final/sentence/train_clean.set', 'r', encoding='UTF-8') as file:
                 label2word[labelCount] = word
                 labelCount += 1
 
-n_hidden = 80
-n_in = 200
+n_hidden = 100
+n_in = word_vec_len
 n_out = len(label2word)
 RNN = MetaRNN(n_in=n_in, n_hidden=n_hidden, n_out=n_out,
                 activation='tanh', output_type='softmax',
