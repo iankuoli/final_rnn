@@ -7,6 +7,7 @@ import theano
 import theano.tensor as T
 import pickle
 import os
+import numpy as np
 
 
 
@@ -28,7 +29,7 @@ __init__ :
 train :
     Performs HF optimization following the above references.'''
 
-  def __init__(self, p, inputs, s, costs, h=None, ha=None):
+  def __init__(self, p, inputs, s, costs, word2label=None, word2vec=None, n_in=None, h=None, ha=None):
     '''Constructs and compiles the necessary Theano functions.
 
   p : list of Theano shared variables
@@ -54,6 +55,10 @@ train :
     self.shapes = [i.get_value().shape for i in p]
     self.sizes = list(map(numpy.prod, self.shapes))
     self.positions = numpy.cumsum([0] + self.sizes)[:-1]
+
+    self.word2label = word2label
+    self.word2vec = word2vec
+    self.n_in = n_in
 
     g = T.grad(costs[0], p)
     g = list(map(T.as_tensor_variable, g))  # for CudaNdarray
@@ -89,7 +94,35 @@ train :
       for i, d in zip(self.p, delta):
         i.set_value(i.get_value() + d)
 
-    cost = numpy.mean([self.f_cost(*i)[0] for i in self.cg_dataset.iterate(update=False)])
+    tmp = []
+    for i in self.cg_dataset.iterate(update=False):
+
+      if self.word2label is not None:
+        xs = i[0]
+        ys = i[1]
+        x_seq = np.zeros((len(xs), self.n_in), dtype='float64')
+        y_seq = np.zeros((len(ys),), dtype='int32')
+        for j in range(len(xs)):
+          x = xs[j]
+          y = ys[j]
+
+          if y in self.word2label:
+            y_seq[j] = self.word2label[y]
+          else:
+            y_seq[j] = self.word2label["%%%"]
+
+          if x in self.word2vec:
+            x_seq[j, :] = self.word2vec[x]
+          else:
+            x_seq[j, :] = self.word2vec["xxxxx"]
+
+        encode_inputs = [x_seq, y_seq]
+        tmp.append(self.f_cost(*encode_inputs)[0])
+      else:
+        tmp.append(self.f_cost(*i)[0])
+
+    cost = numpy.mean(tmp)
+    #cost = numpy.mean([self.f_cost(*i)[0] for i in self.cg_dataset.iterate(update=False)])
 
     if type(delta) in (list, tuple):
       for i, d in zip(self.p, delta):
@@ -102,7 +135,31 @@ train :
     if self.preconditioner:
       M = self.lambda_ * numpy.ones_like(b)
       for inputs in self.cg_dataset.iterate(update=False):
-        M += self.list_to_flat(self.f_gc(*inputs)[:len(self.p)])**2  #/ self.cg_dataset.number_batches**2
+
+        if self.word2label is not None:
+          xs = inputs[0]
+          ys = inputs[1]
+          x_seq = np.zeros((len(xs), self.n_in), dtype='float64')
+          y_seq = np.zeros((len(ys),), dtype='int32')
+          for j in range(len(xs)):
+            x = xs[j]
+            y = ys[j]
+
+            if y in self.word2label:
+              y_seq[j] = self.word2label[y]
+            else:
+              y_seq[j] = self.word2label["%%%"]
+
+            if x in self.word2vec:
+              x_seq[j, :] = self.word2vec[x]
+            else:
+              x_seq[j, :] = self.word2vec["xxxxx"]
+
+          encode_inputs = [x_seq, y_seq]
+          M += self.list_to_flat(self.f_gc(*encode_inputs)[:len(self.p)])**2  #/ self.cg_dataset.number_batches**2
+        else:
+          M += self.list_to_flat(self.f_gc(*inputs)[:len(self.p)])**2  #/ self.cg_dataset.number_batches**2
+
       #print 'precond~%.3f,' % (M - self.lambda_).mean(),
       M **= -0.75  # actually 1/M
       sys.stdout.flush()
@@ -141,7 +198,7 @@ train :
       sys.stdout.flush()
       backspaces = len(progress)
 
-      k = max(10, i/10)
+      k = max(10, int(i/10))
       if i > k and phi_i < 0 and (phi_i - phi[-k-1]) / phi_i < k*0.0005:
         break
 
@@ -169,7 +226,30 @@ train :
     if lambda_ is None: lambda_ = self.lambda_
     result = lambda_*vector  # Tikhonov damping
     for inputs in self.cg_dataset.iterate(False):
-      result += self.list_to_flat(self.function_Gv(*(inputs + v + [lambda_*self.mu]))) / self.cg_dataset.number_batches
+
+      if self.word2label is not None:
+        xs = inputs[0]
+        ys = inputs[1]
+        x_seq = np.zeros((len(xs), self.n_in), dtype='float64')
+        y_seq = np.zeros((len(ys),), dtype='int32')
+        for j in range(len(xs)):
+          x = xs[j]
+          y = ys[j]
+
+          if y in self.word2label:
+            y_seq[j] = self.word2label[y]
+          else:
+            y_seq[j] = self.word2label["%%%"]
+
+          if x in self.word2vec:
+            x_seq[j, :] = self.word2vec[x]
+          else:
+            x_seq[j, :] = self.word2vec["xxxxx"]
+
+        encode_inputs = [x_seq, y_seq]
+        result += self.list_to_flat(self.function_Gv(*(encode_inputs + v + [lambda_*self.mu]))) / self.cg_dataset.number_batches
+      else:
+        result += self.list_to_flat(self.function_Gv(*(inputs + v + [lambda_*self.mu]))) / self.cg_dataset.number_batches
     return result
 
   def train(self, gradient_dataset, cg_dataset, initial_lambda=0.1, mu=0.03, global_backtracking=False, preconditioner=False, max_cg_iterations=250, num_updates=100, validation=None, validation_frequency=1, patience=numpy.inf, save_progress=None):
@@ -236,7 +316,31 @@ train :
         gradient = numpy.zeros(sum(self.sizes), dtype=theano.config.floatX)
         costs = []
         for inputs in gradient_dataset.iterate(update=True):
-          result = self.f_gc(*inputs)
+
+          if self.word2label is not None:
+            xs = inputs[0]
+            ys = inputs[1]
+            x_seq = np.zeros((len(xs), self.n_in), dtype='float64')
+            y_seq = np.zeros((len(ys),), dtype='int32')
+            for j in range(len(xs)):
+              x = xs[j]
+              y = ys[j]
+
+              if y in self.word2label:
+                y_seq[j] = self.word2label[y]
+              else:
+                y_seq[j] = self.word2label["%%%"]
+
+              if x in self.word2vec:
+                x_seq[j, :] = self.word2vec[x]
+              else:
+                x_seq[j, :] = self.word2vec["xxxxx"]
+
+            encode_inputs = [x_seq, y_seq]
+            result = self.f_gc(*encode_inputs)
+          else:
+            result = self.f_gc(*inputs)
+
           gradient += self.list_to_flat(result[:len(self.p)]) / gradient_dataset.number_batches
           costs.append(result[len(self.p):])
 

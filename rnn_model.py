@@ -18,6 +18,7 @@ class RNNmodel:
         #
         self.word2label = {}
         self.label2word = {}
+
         with open(label_path, 'r', encoding='UTF-8') as file:
             for line in file:
                 lines = line.strip('\n').split('\t')
@@ -60,6 +61,7 @@ class RNNmodel:
         cost = self.RNN.rnn.loss(self.RNN.y)
         self.f_pred = theano.function(inputs, cost, on_unused_input='ignore')
 
+
     #
     # Predict the loss of the input x which is a list of strings
     #
@@ -72,14 +74,16 @@ class RNNmodel:
             test_str = "<s> " + test_str + " </s>"
 
             a = clean_text.clean_text(test_str)
-            print(a)
+            #print(a)
             a = a.split(' ')
+
 
             x_seq = numpy.zeros((len(a), self.n_in), dtype='float64')
             y_seq = numpy.zeros((len(a),), dtype='int32')
 
             for i in range(len(a)):
                 word = a[i]
+
                 if word in self.word2label:
                     y_seq[i] = self.word2label[word]
                 else:
@@ -89,6 +93,8 @@ class RNNmodel:
                     x_seq[i, :] = self.model[word]
                 else:
                     x_seq[i, :] = self.model["xxxxx"]
+
+            #print(y_seq)
 
             predicts.append(self.f_pred(*[x_seq, y_seq]))
 

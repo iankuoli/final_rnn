@@ -3,8 +3,7 @@ __author__ = 'iankuoli'
 def clean_text(a):
 
     a = a.strip('\n').lower()
-    a = a.replace("<s>", "")
-    a = a.replace("</s>", "")
+    a = a.replace("-ups", "ups")
     a = a.replace(".", " .")
     a = a.replace("?", " ?")
     a = a.replace("!", " !")
@@ -18,7 +17,11 @@ def clean_text(a):
     a = a.replace("'ll", " 'll")
     a = a.replace("won't", "wont")
     #a = a.replace("'", " '")
-    a = a.replace("-", " ")
+    a = a.replace("-", "")
+    a = a.replace("[", "")
+    a = a.replace("]", "")
+    a = a.replace("<s>", ".")
+    a = a.replace("</s>", ".")
 
     return a
 

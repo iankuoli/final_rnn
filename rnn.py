@@ -153,7 +153,9 @@ class RNN(object):
         # and T.mean(LP[T.arange(y.shape[0]),y]) is the mean (across minibatch examples) of the elements in v,
         # i.e., the mean log-likelihood across the minibatch.
 
+        #return [-T.mean(T.log(self.p_y_given_x)[T.arange(y.shape[0]), y]), -T.sum(T.log(self.p_y_given_x)[T.arange(y.shape[0]), y]), T.arange(y.shape[0])]
         return -T.mean(T.log(self.p_y_given_x)[T.arange(y.shape[0]), y])
+
 
     def errors(self, y):
         """Return a float representing the number of errors in the sequence
